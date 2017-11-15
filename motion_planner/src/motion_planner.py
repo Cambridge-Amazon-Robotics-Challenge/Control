@@ -26,18 +26,21 @@ class MotionPlanner():
 
     def move_to_grabbing_points(self, x1, y1, x2, y2, depth):
 
-        prep_pose = [(x1+x2)/2, (y1+y2)/2, depth-self.h_pick]
+        prep_pose = [(x1+x2)/2, (y1+y2)/2, depth+self.h_pick]
         self._move_end_to_position(prep_pose)
 
         angle = math.degrees(math.atan((y1-y2)/(x1-x2)))
         self._move_grabber_to_angle(angle)
 
         pick_pose = prep_pose
-        pick_pose[2] += self.h_pick
+        pick_pose[2] -= self.h_pick
         self._move_end_to_position(pick_pose)
 
     def move_to_home(self):
-        ic.safe_ur_move(self.conn, iw.home, 4)
+        ic.safe_ur_move(self.conn, iw.home_joints, 2)
+
+    def move_to_dropping_pos(self, x, y, z):
+    	self._move_end_to_position([x,y,z])
 
     def _pose_from_array(self, arr):
         assert(len(arr) == 6)
@@ -52,15 +55,11 @@ class MotionPlanner():
 
         return pose
 
-    def _get_neutral_axis_angle(self):
-        return list((iw.home['rx'], iw.home['ry'], iw.home['rz']))
-
-
-    def _move_end_to_position(self, position):
+    def _move_end_to_position(self, position): # retains current end effector orientation
         
         pose_arr = [0]*6
         pose_arr[:3] = list(position)
-        pose_arr[3:] = self._get_neutral_axis_angle()
+        pose_arr[3:] = ic.get_ur_position(self.conn, 1)[3:]
         pose = self._pose_from_array(pose_arr)
         
         ic.safe_ur_move(self.conn,Pose=pose,CMD=4)
@@ -68,6 +67,11 @@ class MotionPlanner():
 
     def _move_grabber_to_angle(self, angle): # assume pointing straight down
 
-        joint_pos = ic.get_ur_position(self.conn, 3)
-        joint_pos[5] -= angle   # rotate end joint by angle
+        joint_pos_arr = ic.get_ur_position(self.conn, 3)
+        joint_pos_arr[5] -= angle   # rotate end joint by angle
+	joint_pos = self._pose_from_array(joint_pos_arr)
         ic.safe_ur_move(self.conn,Pose=joint_pos,CMD=2)
+
+
+
+
